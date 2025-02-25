@@ -3,128 +3,166 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arbeitsweg Rechner</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
+    <title>Workway</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-        }
-
-        #map {
-            width: 100%;
-            height: 400px;
-        }
-
-        #totalDistance {
-            font-size: 18px;
-            margin-top: 10px;
-        }
-
+        /* Einfaches Design für die Buttons */
         button {
+            background-color: #4CAF50;
+            color: white;
             padding: 10px 20px;
-            margin-top: 20px;
-            font-size: 16px;
+            border: none;
             cursor: pointer;
+            margin-left: 10px;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #result {
+            margin-top: 20px;
+            font-size: 20px;
+        }
+        .place-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .place-item input {
+            margin-right: 10px;
+            padding: 5px;
         }
     </style>
 </head>
 <body>
     <h1>Arbeitsweg Rechner</h1>
-    
-    <input type="text" id="locationsInput" placeholder="Orte (z.B. Olpe, Siegen, Kirchveischede)" style="width: 60%; padding: 10px; margin-top: 20px; font-size: 16px;">
-    <br>
-    <button id="calculateRouteButton">Route berechnen</button>
-    
-    <p id="totalDistance">Gesamtdistanz: </p>
-    
-    <div id="map"></div>
+    <div id="placesInputContainer">
+        <div class="place-item">
+            <input type="text" id="placesInput" placeholder="Gib die Orte ein, z.B. Olpe, Siegen, Kirchveischede">
+            <button onclick="calculateRoute()">Berechnen</button>
+        </div>
+    </div>
 
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <div id="placesList">
+        <!-- Die Orte werden hier als Liste erscheinen -->
+    </div>
+
+    <div id="result">
+        <!-- Das Ergebnis der Routenberechnung wird hier erscheinen -->
+    </div>
+
     <script>
-        const apiKey = '5b3ce3597851110001cf62484340a966fc4945bfa57ce8995c8e89f2'; // Dein OpenRouteService API-Schlüssel
-        const map = L.map('map').setView([51.5, 7], 10); // Startposition der Karte (Sauerland als Beispiel)
-
-        // Karte initialisieren mit OpenStreetMap Tiles
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-        // Funktion zum Suchen der Koordinaten aus der GeoJSON-Datei
-        async function getCoordinatesFromGeoJson(locationName) {
-            try {
-                const response = await fetch('Kreis_siegen_Sauerland.geojson'); // GeoJSON-Datei vom gleichen Ordner laden
-                const geoJsonData = await response.json(); // GeoJSON-Daten einlesen
-
-                const location = geoJsonData.features.find(feature => feature.properties.name.toLowerCase() === locationName.toLowerCase());
-
-                if (location) {
-                    return location.geometry.coordinates;
-                } else {
-                    return null; // Ort nicht gefunden
-                }
-            } catch (error) {
-                console.error('Fehler beim Laden der GeoJSON-Datei:', error);
-                return null;
-            }
+        // Die Kopieren-Funktion
+        function copyToClipboard(text) {
+            const tempInput = document.createElement("input");
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand("copy");
+            document.body.removeChild(tempInput);
+            alert("Kopiert: " + text);
         }
 
-        // Funktion um Koordinaten aus der Benutzereingabe zu erhalten
-        async function getCoordinatesFromInput() {
-            const locationsInput = document.getElementById('locationsInput').value;
-            const locations = locationsInput.split(',').map(location => location.trim());
+        // Berechnung der Route und der Distanzen
+        function calculateRoute() {
+            const inputField = document.getElementById('placesInput');
+            const places = inputField.value.split(',').map(place => place.trim());
 
-            const coordinates = [];
-
-            for (let location of locations) {
-                const coords = await getCoordinatesFromGeoJson(location);
-                if (coords) {
-                    coordinates.push(coords);
-                } else {
-                    console.log(`Kein Ergebnis für: ${location}`); // Fehlerausgabe, wenn der Ort nicht gefunden wurde
-                }
-            }
-
-            console.log("Koordinaten:", coordinates);
-            return coordinates;
-        }
-
-        // Funktion zur Berechnung der Route und Anzeige der Karte
-        async function calculateRoute() {
-            const coordinates = await getCoordinatesFromInput();
-
-            if (coordinates.length < 2) {
-                alert('Bitte mindestens zwei Orte eingeben.');
+            if (places.length < 2) {
+                alert("Bitte mindestens zwei Orte eingeben!");
                 return;
             }
 
-            const url = `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${apiKey}&start=${coordinates[0].join(',')}&end=${coordinates[coordinates.length - 1].join(',')}`;
-            
-            try {
-                const response = await fetch(url);
-                const data = await response.json();
-
-                if (!data.features || data.features.length === 0) {
-                    alert('Fehler: Keine Route gefunden!');
-                    return;
+            const coordinates = [];
+            for (let i = 0; i < places.length; i++) {
+                const place = places[i];
+                const coords = getCoordinatesFromGeoJson(place);
+                if (coords) {
+                    coordinates.push(coords);
+                } else {
+                    alert(`Kein Ergebnis für: ${place}`);
                 }
+            }
 
-                const routeCoordinates = data.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+            if (coordinates.length === places.length) {
+                let totalDistance = 0;
+                for (let i = 0; i < coordinates.length - 1; i++) {
+                    const start = coordinates[i];
+                    const end = coordinates[i + 1];
 
-                // Zeige die Route auf der Karte an
-                L.polyline(routeCoordinates, { color: 'blue' }).addTo(map);
-                map.fitBounds(routeCoordinates);
-
-                // Berechne und zeige die Distanz an
-                const distance = (data.features[0].properties.segments[0].distance / 1000).toFixed(2); // In km
-                document.getElementById('totalDistance').innerText = `Gesamtdistanz: ${distance} km`;
-            } catch (error) {
-                alert('Fehler bei der Routenberechnung. Bitte versuche es später erneut.');
-                console.error('Fehler:', error);
+                    getRoute(start, end, (distance) => {
+                        totalDistance += distance;
+                        if (i === coordinates.length - 2) {
+                            displayResult(totalDistance);
+                        }
+                    });
+                }
             }
         }
 
-        // Event-Listener für den Button
-        document.getElementById('calculateRouteButton').addEventListener('click', calculateRoute);
+        // Holen der Koordinaten für die Orte aus der GeoJSON
+        function getCoordinatesFromGeoJson(placeName) {
+            const geojson = window.geojsonData; // Annahme: Die GeoJSON-Daten sind global verfügbar
+            const feature = geojson.features.find(f => f.properties.name.toLowerCase() === placeName.toLowerCase());
+            if (feature) {
+                return feature.geometry.coordinates;
+            }
+            return null;
+        }
+
+        // Holen der Route und Berechnung der Distanz
+        function getRoute(startCoords, endCoords, callback) {
+            const url = `https://api.openstreetmap.org/routing/v1/route?start=${startCoords[1]},${startCoords[0]}&end=${endCoords[1]},${endCoords[0]}&format=json`;
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    const distance = data.routes[0].legs[0].distance / 1000; // in km
+                    callback(distance);
+                })
+                .catch(error => {
+                    console.error('Fehler beim Abrufen der Route:', error);
+                });
+        }
+
+        // Das Ergebnis der Berechnung anzeigen
+        function displayResult(totalDistance) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `
+                Die gesamte Entfernung beträgt: ${totalDistance.toFixed(2)} km
+                <button onclick="copyToClipboard('${totalDistance.toFixed(2)} km')">Kopieren</button>
+            `;
+        }
+
+        // Dynamisches Erstellen der Liste der Orte und Kopier-Buttons
+        function updatePlaceList(places) {
+            const placesListDiv = document.getElementById('placesList');
+            placesListDiv.innerHTML = '';  // Liste zurücksetzen
+            places.forEach((place, index) => {
+                const placeDiv = document.createElement('div');
+                placeDiv.classList.add('place-item');
+                placeDiv.innerHTML = `
+                    <input type="text" value="${place}" readonly>
+                    <button onclick="copyToClipboard('${place}')">Kopieren</button>
+                    <button onclick="removePlace(${index})">Löschen</button>
+                `;
+                placesListDiv.appendChild(placeDiv);
+            });
+        }
+
+        // Ort löschen
+        function removePlace(index) {
+            const inputField = document.getElementById('placesInput');
+            const places = inputField.value.split(',').map(place => place.trim());
+            places.splice(index, 1);
+            inputField.value = places.join(', ');
+            updatePlaceList(places);
+        }
+
+        // Den Code nach der Berechnung aufrufen, um die Orte anzuzeigen
+        document.getElementById('placesInput').addEventListener('input', function() {
+            const places = this.value.split(',').map(place => place.trim());
+            updatePlaceList(places);
+        });
     </script>
 </body>
 </html>
-
