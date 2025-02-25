@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arbeitsweg Rechner</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+
+        #map {
+            width: 100%;
+            height: 400px;
+        }
+
+        #totalDistance {
+            font-size: 18px;
+            margin-top: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin-top: 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Arbeitsweg Rechner</h1>
+    
+    <input type="text" id="locationsInput" placeholder="Orte (z.B. Olpe, Siegen, Kirchveischede)" style="width: 60%; padding: 10px; margin-top: 20px; font-size: 16px;">
+    <br>
+    <button id="calculateRouteButton">Route berechnen</button>
+    
+    <p id="totalDistance">Gesamtdistanz: </p>
+    
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        const apiKey = '5b3ce3597851110001cf62484340a966fc4945bfa57ce8995c8e89f2'; // Dein OpenRouteService API-Schlüssel
+        const map = L.map('map').setView([51.5, 7], 10); // Startposition der Karte (Sauerland als Beispiel)
+
+        // Karte initialisieren mit OpenStreetMap Tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        // Funktion zum Suchen der Koordinaten aus der GeoJSON-Datei
+        async function getCoordinatesFromGeoJson(locationName) {
+            try {
+                const response = await fetch('Kreis_siegen_Sauerland.geojson'); // GeoJSON-Datei vom gleichen Ordner laden
+                const geoJsonData = await response.json(); // GeoJSON-Daten einlesen
+
+                const location = geoJsonData.features.find(feature => feature.properties.name.toLowerCase() === locationName.toLowerCase());
+
+                if (location) {
+                    return location.geometry.coordinates;
+                } else {
+                    return null; // Ort nicht gefunden
+                }
+            } catch (error) {
+                console.error('Fehler beim Laden der GeoJSON-Datei:', error);
+                return null;
+            }
+        }
+
+        // Funktion um Koordinaten aus der Benutzereingabe zu erhalten
+        async function getCoordinatesFromInput() {
+            const locationsInput = document.getElementById('locationsInput').value;
+            const locations = locationsInput.split(',').map(location => location.trim());
+
+            const coordinates = [];
+
+            for (let location of locations) {
+                const coords = await getCoordinatesFromGeoJson(location);
+                if (coords) {
+                    coordinates.push(coords);
+                } else {
+                    console.log(`Kein Ergebnis für: ${location}`); // Fehlerausgabe, wenn der Ort nicht gefunden wurde
+                }
+            }
+
+            console.log("Koordinaten:", coordinates);
+            return coordinates;
+        }
+
+        // Funktion zur Berechnung der Route und Anzeige der Karte
+        async function calculateRoute() {
+            const coordinates = await getCoordinatesFromInput();
+
+            if (coordinates.length < 2) {
+                alert('Bitte mindestens zwei Orte eingeben.');
+                return;
+            }
+
+            const url = `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${apiKey}&start=${coordinates[0].join(',')}&end=${coordinates[coordinates.length - 1].join(',')}`;
+            
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (!data.features || data.features.length === 0) {
+                    alert('Fehler: Keine Route gefunden!');
+                    return;
+                }
+
+                const routeCoordinates = data.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+
+                // Zeige die Route auf der Karte an
+                L.polyline(routeCoordinates, { color: 'blue' }).addTo(map);
+                map.fitBounds(routeCoordinates);
+
+                // Berechne und zeige die Distanz an
+                const distance = (data.features[0].properties.segments[0].distance / 1000).toFixed(2); // In km
+                document.getElementById('totalDistance').innerText = `Gesamtdistanz: ${distance} km`;
+            } catch (error) {
+                alert('Fehler bei der Routenberechnung. Bitte versuche es später erneut.');
+                console.error('Fehler:', error);
+            }
+        }
+
+        // Event-Listener für den Button
+        document.getElementById('calculateRouteButton').addEventListener('click', calculateRoute);
+    </script>
+</body>
+</html>
+
