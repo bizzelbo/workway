@@ -3,119 +3,102 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Workway - Arbeitsweg Rechner</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <title>Workway</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
-        .container { padding: 20px; max-width: 800px; margin: 0 auto; }
-        input, button { padding: 10px; margin: 5px; }
-        #map { height: 400px; margin-top: 20px; }
+        /* Einfaches Design für die Buttons */
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            margin-left: 10px;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #result {
+            margin-top: 20px;
+            font-size: 20px;
+        }
+        #placesInputContainer {
+            margin-bottom: 20px;
+        }
+        .placesInputRow {
+            display: flex;
+            align-items: center;
+        }
+        .placesInputRow input {
+            margin-right: 10px;
+            padding: 5px;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Workway - Arbeitsweg Rechner</h1>
-        <input type="text" id="placesInput" placeholder="Orte eingeben, z. B. Ort1, Ort2, Ort3" style="width: 70%;">
+    <h1>Arbeitsweg Rechner</h1>
+    <div id="placesInputContainer" class="placesInputRow">
+        <input type="text" id="placesInput" placeholder="Gib die Orte ein, z.B. Olpe, Siegen, Kirchveischede">
         <button onclick="calculateRoute()">Berechnen</button>
-        <button onclick="copyInput()">Eingegebene Orte kopieren</button>
-
-        <p id="result"></p>
-        <button onclick="copyResult()">Ergebnis kopieren</button>
-
-        <div id="map"></div>
+        <button onclick="copyPlaces()">Kopieren Orte</button>
     </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <div id="result">
+        <!-- Das Ergebnis der Berechnung wird hier erscheinen -->
+    </div>
+
+    <div id="map" style="height: 400px; width: 100%; margin-top: 20px;"></div>
+
     <script>
-        let map;
-        let geoJsonData = null;
+        let geojsonData = {};  // Hier wird später das GeoJSON geladen
+        let markers = []; // Array für die Marker
 
-        // GeoJSON-Datei direkt einbinden
-        fetch('Kreis_siegen_Sauerland.geojson')
-            .then(response => response.json())
-            .then(data => {
-                geoJsonData = data;
-                console.log('GeoJSON geladen:', geoJsonData);
-            })
-            .catch(error => console.error('Fehler beim Laden der GeoJSON-Datei:', error));
-
-        function getCoordinatesFromGeoJson(name) {
-            if (!geoJsonData) return null;
-            name = name.trim().toLowerCase();
-            for (const feature of geoJsonData.features) {
-                if (feature.properties.name && feature.properties.name.toLowerCase() === name) {
-                    return feature.geometry.coordinates;
+        // Simuliertes GeoJSON für Testzwecke
+        geojsonData = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": { "name": "Olpe" },
+                    "geometry": { "type": "Point", "coordinates": [7.8661, 51.0828] }
+                },
+                {
+                    "type": "Feature",
+                    "properties": { "name": "Siegen" },
+                    "geometry": { "type": "Point", "coordinates": [8.0235, 50.8757] }
+                },
+                {
+                    "type": "Feature",
+                    "properties": { "name": "Kirchveischede" },
+                    "geometry": { "type": "Point", "coordinates": [7.9748, 51.0822] }
                 }
-            }
-            console.warn('Kein Ergebnis für:', name);
-            return null;
-        }
+            ]
+        };
 
-        async function calculateRoute() {
-            const placesInput = document.getElementById('placesInput').value;
-            const places = placesInput.split(',').map(p => p.trim());
+        // Berechnung der Route und der Distanzen
+        function calculateRoute() {
+            const inputField = document.getElementById('placesInput');
+            const places = inputField.value.split(',').map(place => place.trim());
 
-            const coordinates = [];
-            for (let place of places) {
-                const coords = getCoordinatesFromGeoJson(place);
-                if (coords) {
-                    coordinates.push(coords.reverse());
-                }
-            }
-
-            if (coordinates.length < 2) {
-                alert('Mindestens zwei gültige Orte erforderlich!');
+            if (places.length < 2) {
+                alert("Bitte mindestens zwei Orte eingeben!");
                 return;
             }
 
-            if (!map) {
-                map = L.map('map').setView(coordinates[0], 10);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: 'Karte © <a href="https://openstreetmap.org">OpenStreetMap</a>'
-                }).addTo(map);
-            } else {
-                map.setView(coordinates[0], 10);
+            const coordinates = [];
+            for (let i = 0; i < places.length; i++) {
+                const place = places[i];
+                const coords = getCoordinatesFromGeoJson(place);
+                if (coords) {
+                    coordinates.push(coords);
+                } else {
+                    alert(`Kein Ergebnis für: ${place}`);
+                    return;
+                }
             }
 
-
-            const routeCoordinates = coordinates.map(coord => coord.join(',')).join('|');
-            const url = `https://api.openrouteservice.org/v2/directions/driving-car?api_key=5b3ce3597851110001cf62484340a966fc4945bfa57ce8995c8e89f2`;
-            const requestBody = {
-                coordinates: coordinates,
-                format: 'geojson'
-            };
-
-            try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(requestBody)
-                });
-                const data = await response.json();
-                const distance = data.features[0].properties.segments[0].distance / 1000;
-                document.getElementById('result').textContent = `Gesamte Strecke: ${distance.toFixed(2)} km`;
-
-                L.geoJSON(data).addTo(map);
-
-            } catch (error) {
-                console.error('Fehler beim Berechnen der Route:', error);
-            }
-        }
-
-        function copyInput() {
-            const input = document.getElementById('placesInput');
-            navigator.clipboard.writeText(input.value);
-            alert('Orte kopiert!');
-        }
-
-        function copyResult() {
-            const result = document.getElementById('result').textContent;
-            navigator.clipboard.writeText(result);
-            alert('Ergebnis kopiert!');
-        }
-
-    </script>
-</body>
-</html>
+            let totalDistance = 0;
+            let routePromises = [];
+            for (let i = 0; i < coordinates.length - 1; i++) {
+                const start = coordinates[i];
+                const end = coordi
