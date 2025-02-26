@@ -98,16 +98,12 @@
                         waypoints: waypoints,
                         createMarker: function() { return null; },
                         routeWhileDragging: true,
-                        showAlternatives: false,
-                        plan: function(route) {
-                            route.on('routesfound', function(e) {
-                                totalDistance += e.routes[0].summary.totalDistance / 1000; // Umrechnung in Kilometer
-                                outputDiv.innerHTML = `Gesamtstrecke für diese Route: ${totalDistance.toFixed(2)} km`;
-                            });
-                        }
+                        showAlternatives: false
+                    }).on('routesfound', function(e) {
+                        // Berechne die Gesamtstrecke
+                        totalDistance = e.routes[0].summary.totalDistance / 1000; // Umrechnung in Kilometer
+                        outputDiv.innerHTML = `Gesamtstrecke für diese Route: ${totalDistance.toFixed(2)} km`;
                     }).addTo(map);
-
-                    outputDiv.innerHTML = `Routen berechnet! Gesamtdistanz: ${totalDistance.toFixed(2)} km`;
                 }).catch(error => {
                     outputDiv.innerHTML = 'Fehler beim Berechnen der Koordinaten: ' + error;
                 });
