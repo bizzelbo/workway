@@ -3,13 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Workway</title>
+    <title>Workway mit GeoJSON</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             text-align: center;
             background-color: #f4f4f4;
             padding: 20px;
+            position: relative; /* Für die Positionierung der Karte */
+            height: 100vh; /* Damit der Container die gesamte Höhe einnimmt */
         }
         h1 {
             background: linear-gradient(to right, #ff0000, #ff9900, #33cc33, #0099ff, #9900cc);
@@ -30,21 +32,25 @@
             margin: 10px;
             font-size: 14px;
         }
+
+        /* Positionierung der Karte */
         #map {
-            height: 20%; /* Höhe der Karte */
-            width: 50%%; /* Die Karte wird die volle Breite des Containers einnehmen */
-            margin-top: 20px;
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            width: 20%;
+            height: 20%;
             border: 1px solid #ddd;
         }
     </style>
 </head>
 <body>
 
-<h1>Workway</h1>
+<h1>Workway mit GeoJSON</h1>
 
 <div id="input-container">
     <label for="locations">Gib Orte ein (durch Kommata getrennt):</label><br>
-    <input type="text" id="locations" placeholder="z.B. Raidelbach, Siegen" style="width: 300px;">
+    <input type="text" id="locations" placeholder="z.B. Raidelbach, Siegen, Köln" style="width: 300px;">
     <button onclick="calculateRoutes()">Berechne Routen</button>
 </div>
 
@@ -52,9 +58,6 @@
 
 <!-- Container für die Karte -->
 <div id="map"></div>
-
-<!-- Button zum Kopieren der Kilometer -->
-<button id="copyButton" onclick="copyToClipboard()" style="display: none;">KM kopieren</button>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
@@ -119,9 +122,6 @@
                     // Ausgabe der Gesamtstrecke
                     totalDistance = totalDistance / 1000; // Umrechnung in Kilometer
                     outputDiv.innerHTML = `Gesamtstrecke für diese Route: ${totalDistance.toFixed(2)} km`;
-
-                    // Zeige den "KM kopieren"-Button
-                    document.getElementById('copyButton').style.display = 'inline';
                 }).catch(error => {
                     outputDiv.innerHTML = 'Fehler beim Berechnen der Koordinaten: ' + error;
                 });
@@ -141,16 +141,6 @@
             } else {
                 resolve(null);
             }
-        });
-    }
-
-    // Funktion zum Kopieren der Kilometer in die Zwischenablage
-    function copyToClipboard() {
-        const textToCopy = `${totalDistance.toFixed(2)} km`;
-        navigator.clipboard.writeText(textToCopy).then(() => {
-            alert('Die Kilometer wurden in die Zwischenablage kopiert!');
-        }).catch(err => {
-            alert('Fehler beim Kopieren: ' + err);
         });
     }
 </script>
