@@ -31,9 +31,10 @@
             font-size: 14px;
         }
         #map {
-            height: 500px;
-            width: 100%;
-            margin-top: 30px;
+            height: 300px; /* Die Höhe der Karte, du kannst die Größe anpassen */
+            width: 100%; /* Die Karte nimmt die gesamte Breite des Containers ein */
+            margin-top: 20px;
+            border: 1px solid #ddd;
         }
     </style>
 </head>
@@ -43,11 +44,13 @@
 
 <div id="input-container">
     <label for="locations">Gib Orte ein (durch Kommata getrennt):</label><br>
-    <input type="text" id="locations" placeholder="z.B. Raidelbach, Siegen" style="width: 300px;">
+    <input type="text" id="locations" placeholder="z.B. Raidelbach, Siegen, Köln" style="width: 300px;">
     <button onclick="calculateRoutes()">Berechne Routen</button>
 </div>
 
 <div id="output"></div>
+
+<!-- Container für die Karte -->
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -56,7 +59,8 @@
 <script>
     const apiKey = '5b3ce3597851110001cf62484340a966fc4945bfa57ce8995c8e89f2';
 
-    let map = L.map('map').setView([50.856, 8.024], 7); // Start position (Siegen)
+    // Initialisierung der Karte
+    const map = L.map('map').setView([51.1657, 10.4515], 6);  // Setze die Startposition der Karte auf Deutschland
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -84,7 +88,7 @@
 
                 Promise.all(promises).then(coordinates => {
                     coordinates.forEach(coord => {
-                        if (coord) waypoints.push(L.latLng(coord.lat, coord.lon));
+                        if (coord) waypoints.push(L.latLng(coord.lat, coord.lon)); // Füge Koordinaten hinzu
                     });
 
                     if (waypoints.length < 2) {
@@ -92,27 +96,25 @@
                         return;
                     }
 
-                    // Zeige Route auf der Karte an
+                    // Berechne die Gesamtstrecke der Route
                     let totalDistance = 0;
-                    let routeControl = L.Routing.control({
+                    for (let i = 0; i < waypoints.length - 1; i++) {
+                        const from = waypoints[i];
+                        const to = waypoints[i + 1];
+                        totalDistance += from.distanceTo(to); // Berechne die Entfernung zwischen den Punkten
+                    }
+
+                    // Route auf der Karte hinzufügen
+                    L.Routing.control({
                         waypoints: waypoints,
                         createMarker: function() { return null; }, // Keine Marker anzeigen
                         routeWhileDragging: true,
                         showAlternatives: false
-                    }).on('routesfound', function(e) {
-                        // Berechne die Gesamtstrecke
-                        totalDistance = e.routes[0].summary.totalDistance / 1000; // Umrechnung in Kilometer
-                        outputDiv.innerHTML = `Gesamtstrecke für diese Route: ${totalDistance.toFixed(2)} km`;
                     }).addTo(map);
 
-                    // Zeichne die Route auf der Karte
-                    routeControl.getRoutes().forEach(route => {
-                        route.setStyle({
-                            color: 'blue',
-                            weight: 5,
-                            opacity: 0.7
-                        });
-                    });
+                    // Ausgabe der Gesamtstrecke
+                    totalDistance = totalDistance / 1000; // Umrechnung in Kilometer
+                    outputDiv.innerHTML = `Gesamtstrecke für diese Route: ${totalDistance.toFixed(2)} km`;
                 }).catch(error => {
                     outputDiv.innerHTML = 'Fehler beim Berechnen der Koordinaten: ' + error;
                 });
