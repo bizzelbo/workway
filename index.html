@@ -3,187 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Workway</title>
-    <style>
-        /* Einfaches Design für die Buttons */
-        button {
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            cursor: pointer;
-            margin-left: 10px;
-            border-radius: 5px;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
-        #result {
-            margin-top: 20px;
-            font-size: 20px;
-        }
-        #placesInputContainer {
-            margin-bottom: 20px;
-        }
-        .placesInputRow {
-            display: flex;
-            align-items: center;
-        }
-        .placesInputRow input {
-            margin-right: 10px;
-            padding: 5px;
-        }
-    </style>
+    <title>Workway - Arbeitsweg Rechner</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
-<body>
-    <h1>Arbeitsweg Rechner</h1>
-    <div id="placesInputContainer" class="placesInputRow">
-        <input type="text" id="placesInput" placeholder="Gib die Orte ein, z.B. Olpe, Siegen, Kirchveischede">
-        <button onclick="calculateRoute()">Berechnen</button>
-        <button onclick="copyPlaces()">Kopieren Orte</button>
+<body class="bg-gray-100 p-6">
+    <div class="max-w-4xl mx-auto p-4 bg-white shadow-lg rounded-2xl">
+        <h1 class="text-3xl font-bold mb-4">Workway - Berechne deinen Arbeitsweg</h1>
+        <div class="mb-4">
+            <label for="locationInput" class="block mb-2 text-lg">Orte eingeben (mit Komma trennen):</label>
+            <input type="text" id="locationInput" placeholder="z.B. Ort1, Ort2, Ort3" class="w-full p-2 border rounded mb-2">
+            <div class="flex gap-2 mb-4">
+                <button onclick="calculateRoute()" class="bg-blue-500 text-white p-2 rounded">Berechnen</button>
+                <button onclick="copyLocations()" class="bg-green-500 text-white p-2 rounded">Orte kopieren</button>
+            </div>
+        </div>
+        <div>
+            <p id="result" class="text-lg font-semibold mb-2"></p>
+            <button onclick="copyResult()" class="bg-green-500 text-white p-2 rounded mb-4">Kilometer kopieren</button>
+        </div>
+        <div id="map" class="w-full h-80 rounded-xl shadow-lg"></div>
     </div>
-
-    <div id="result">
-        <!-- Das Ergebnis der Berechnung wird hier erscheinen -->
-    </div>
-
-    <div id="map" style="height: 400px; width: 100%; margin-top: 20px;"></div>
 
     <script>
-        let geojsonData = {};  // Hier wird später das GeoJSON geladen
+        let map;
+        let routeLayer;
+        async function loadGeoJson() {
+            const response = await fetch('Kreis_siegen_Sauerland.geojson');
+            const data = await response.json();
+            return data.features;
+        }
 
-        // Simuliertes GeoJSON für Testzwecke
-        // Ersetze dies später mit deinem tatsächlichen GeoJSON
-        geojsonData = {
-            "type": "FeatureCollection",
-            "features": [
-                {
-                    "type": "Feature",
-                    "properties": { "name": "Olpe" },
-                    "geometry": { "type": "Point", "coordinates": [7.8661, 51.0828] }
-                },
-                {
-                    "type": "Feature",
-                    "properties": { "name": "Siegen" },
-                    "geometry": { "type": "Point", "coordinates": [8.0235, 50.8757] }
-                },
-                {
-                    "type": "Feature",
-                    "properties": { "name": "Kirchveischede" },
-                    "geometry": { "type": "Point", "coordinates": [7.9748, 51.0822] }
-                }
-            ]
-        };
+        async function calculateRoute() {
+            const geoData = await loadGeoJson();
+            const input = document.getElementById('locationInput').value.toLowerCase();
+            const locations = input.split(',').map(loc => loc.trim()).filter(loc => loc);
+            if (locations.length < 2) {
+                alert('Bitte mindestens zwei Orte eingeben!');
+                return;
+            }
+            const coordinates = locations.map(loc => {
+                const feature = geoData.find(f => f.properties.name.toLowerCase() === loc);
+                return feature ? feature.geometry.coordinates : null;
+            }).filter(coord => coord);
 
-        // Berechnung der Route und der Distanzen
-        function calculateRoute() {
-            const inputField = document.getElementById('placesInput');
-            const places = inputField.value.split(',').map(place => place.trim());
-
-            if (places.length < 2) {
-                alert("Bitte mindestens zwei Orte eingeben!");
+            if (coordinates.length < 2) {
+                alert('Einige Orte konnten nicht gefunden werden!');
                 return;
             }
 
-            const coordinates = [];
-            for (let i = 0; i < places.length; i++) {
-                const place = places[i];
-                const coords = getCoordinatesFromGeoJson(place);
-                if (coords) {
-                    coordinates.push(coords);
-                } else {
-                    alert(`Kein Ergebnis für: ${place}`);
-                    return;
-                }
-            }
-
             let totalDistance = 0;
-            let routePromises = [];
             for (let i = 0; i < coordinates.length - 1; i++) {
-                const start = coordinates[i];
-                const end = coordinates[i + 1];
-
-                routePromises.push(
-                    getRoute(start, end).then(distance => {
-                        totalDistance += distance;
-                    })
-                );
+                const [lng1, lat1] = coordinates[i];
+                const [lng2, lat2] = coordinates[i + 1];
+                const distance = await fetch(`https://api.openrouteservice.org/v2/directions/driving-car?api_key=5b3ce3597851110001cf62484340a966fc4945bfa57ce8995c8e89f2&start=${lng1},${lat1}&end=${lng2},${lat2}`)
+                    .then(res => res.json())
+                    .then(data => data.routes[0].summary.distance / 1000);
+                totalDistance += distance;
             }
-
-            Promise.all(routePromises).then(() => {
-                displayResult(totalDistance);
-            });
+            document.getElementById('result').textContent = `Gesamtdistanz: ${totalDistance.toFixed(2)} km`;
+            showRouteOnMap(coordinates);
         }
 
-        // Holen der Koordinaten für die Orte aus der GeoJSON
-        function getCoordinatesFromGeoJson(placeName) {
-            const feature = geojsonData.features.find(f => f.properties.name.toLowerCase() === placeName.toLowerCase());
-            if (feature) {
-                return feature.geometry.coordinates;
+        function showRouteOnMap(coordinates) {
+            if (!map) {
+                map = L.map('map').setView([50.9, 8.0], 10);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: 'Karte © <a href="https://openstreetmap.org">OpenStreetMap</a>'
+                }).addTo(map);
             }
-            return null;
+            if (routeLayer) {
+                map.removeLayer(routeLayer);
+            }
+            routeLayer = L.polyline(coordinates.map(c => [c[1], c[0]]), { color: 'blue' }).addTo(map);
+            map.fitBounds(routeLayer.getBounds());
         }
 
-        // Holen der Route und Berechnung der Distanz
-        function getRoute(startCoords, endCoords) {
-            const url = `https://api.openstreetmap.org/routing/v1/route?start=${startCoords[1]},${startCoords[0]}&end=${endCoords[1]},${endCoords[0]}&format=json`;
-
-            return fetch(url)
-                .then(response => response.json())
-                .then(data => {
-                    const distance = data.routes[0].legs[0].distance / 1000; // in km
-                    return distance;
-                })
-                .catch(error => {
-                    console.error('Fehler beim Abrufen der Route:', error);
-                    return 0; // im Fehlerfall 0 zurückgeben
-                });
+        function copyLocations() {
+            const input = document.getElementById('locationInput').value;
+            navigator.clipboard.writeText(input);
+            alert('Orte kopiert!');
         }
 
-        // Das Ergebnis der Berechnung anzeigen
-        function displayResult(totalDistance) {
-            const resultDiv = document.getElementById('result');
-            resultDiv.innerHTML = `
-                Die gesamte Entfernung beträgt: ${totalDistance.toFixed(2)} km
-                <button onclick="copyToClipboard('${totalDistance.toFixed(2)} km')">Kopieren</button>
-            `;
+        function copyResult() {
+            const result = document.getElementById('result').textContent;
+            navigator.clipboard.writeText(result);
+            alert('Kilometerstand kopiert!');
         }
-
-        // Die Kopieren-Funktion
-        function copyToClipboard(text) {
-            const tempInput = document.createElement("input");
-            tempInput.value = text;
-            document.body.appendChild(tempInput);
-            tempInput.select();
-            document.execCommand("copy");
-            document.body.removeChild(tempInput);
-            alert("Kopiert: " + text);
-        }
-
-        // Orte kopieren
-        function copyPlaces() {
-            const inputField = document.getElementById('placesInput');
-            copyToClipboard(inputField.value);
-        }
-
-        // Karte mit Leaflet einbinden
-        function initMap() {
-            const map = L.map('map').setView([51.0828, 7.8661], 10);  // Default auf Olpe
-
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            }).addTo(map);
-
-            // Marker für jedes GeoJSON Feature setzen
-            geojsonData.features.forEach(feature => {
-                L.marker([feature.geometry.coordinates[1], feature.geometry.coordinates[0]])
-                    .bindPopup(feature.properties.name)
-                    .addTo(map);
-            });
-        }
-
-        // Karte initialisieren
-        initMap();
     </script>
 </body>
 </html>
