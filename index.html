@@ -53,11 +53,15 @@
 <!-- Container für die Karte -->
 <div id="map"></div>
 
+<!-- Button zum Kopieren der Kilometer -->
+<button id="copyButton" onclick="copyToClipboard()" style="display: none;">KM kopieren</button>
+
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
 
 <script>
     const apiKey = '5b3ce3597851110001cf62484340a966fc4945bfa57ce8995c8e89f2';
+    let totalDistance = 0;  // Variable für die Gesamtstrecke
 
     // Initialisierung der Karte
     const map = L.map('map').setView([51.1657, 10.4515], 6);  // Setze die Startposition der Karte auf Deutschland
@@ -97,7 +101,7 @@
                     }
 
                     // Berechne die Gesamtstrecke der Route
-                    let totalDistance = 0;
+                    totalDistance = 0;
                     for (let i = 0; i < waypoints.length - 1; i++) {
                         const from = waypoints[i];
                         const to = waypoints[i + 1];
@@ -115,6 +119,9 @@
                     // Ausgabe der Gesamtstrecke
                     totalDistance = totalDistance / 1000; // Umrechnung in Kilometer
                     outputDiv.innerHTML = `Gesamtstrecke für diese Route: ${totalDistance.toFixed(2)} km`;
+
+                    // Zeige den "KM kopieren"-Button
+                    document.getElementById('copyButton').style.display = 'inline';
                 }).catch(error => {
                     outputDiv.innerHTML = 'Fehler beim Berechnen der Koordinaten: ' + error;
                 });
@@ -134,6 +141,16 @@
             } else {
                 resolve(null);
             }
+        });
+    }
+
+    // Funktion zum Kopieren der Kilometer in die Zwischenablage
+    function copyToClipboard() {
+        const textToCopy = `${totalDistance.toFixed(2)} km`;
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            alert('Die Kilometer wurden in die Zwischenablage kopiert!');
+        }).catch(err => {
+            alert('Fehler beim Kopieren: ' + err);
         });
     }
 </script>
