@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Workway</title>
+    <title>Workway mit GeoJSON</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -39,11 +39,11 @@
 </head>
 <body>
 
-<h1>Workway</h1>
+<h1>Workway mit GeoJSON</h1>
 
 <div id="input-container">
     <label for="locations">Gib Orte ein (durch Kommata getrennt):</label><br>
-    <input type="text" id="locations" placeholder="z.B. Siegen, Kreuztal" style="width: 300px;">
+    <input type="text" id="locations" placeholder="z.B. Raidelbach, Siegen, Köln" style="width: 300px;">
     <button onclick="calculateRoutes()">Berechne Routen</button>
 </div>
 
@@ -55,6 +55,43 @@
 
 <script>
     const apiKey = '5b3ce3597851110001cf62484340a966fc4945bfa57ce8995c8e89f2';
+
+    // Beispiel GeoJSON-Daten (dieses Format könntest du z.B. aus einer externen Datei laden)
+    const geoJsonData = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {
+                    "name": "Raidelbach"
+                },
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [8.7352499, 49.709349]
+                }
+            },
+            {
+                "type": "Feature",
+                "properties": {
+                    "name": "Siegen"
+                },
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [8.026, 50.858]
+                }
+            },
+            {
+                "type": "Feature",
+                "properties": {
+                    "name": "Köln"
+                },
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [6.960279, 50.937531]
+                }
+            }
+        ]
+    };
 
     let map = L.map('map').setView([50.856, 8.024], 7); // Start position (Siegen)
 
@@ -73,8 +110,9 @@
         let outputDiv = document.getElementById('output');
         outputDiv.innerHTML = ''; // Clear previous output
         let waypoints = [];
-        
-        let promises = locations.map(loc => getCoordinates(loc));
+
+        // Extrahiere die Koordinaten der angegebenen Orte aus dem GeoJSON
+        let promises = locations.map(loc => getCoordinatesFromGeoJson(loc));
 
         Promise.all(promises).then(coordinates => {
             coordinates.forEach(coord => {
@@ -86,7 +124,7 @@
                 return;
             }
 
-            // Show route on the map
+            // Zeige Route auf der Karte an
             let totalDistance = 0;
             L.Routing.control({
                 waypoints: waypoints,
@@ -95,7 +133,7 @@
                 showAlternatives: false,
                 plan: function(route) {
                     route.on('routesfound', function(e) {
-                        totalDistance += e.routes[0].summary.totalDistance / 1000; // Convert meters to kilometers
+                        totalDistance += e.routes[0].summary.totalDistance / 1000; // Umrechnung in Kilometer
                         outputDiv.innerHTML = `Gesamtstrecke für diese Route: ${totalDistance.toFixed(2)} km`;
                     });
                 }
@@ -103,62 +141,21 @@
 
             outputDiv.innerHTML = `Routen berechnet! Gesamtdistanz: ${totalDistance.toFixed(2)} km`;
 
-            // Handle multiple locations (4 or more)
-            if (waypoints.length >= 4) {
-                let permutations = getPermutations(waypoints);
-                let totalRoute = [];
-                let totalPermDistance = 0;
-                permutations.forEach(route => {
-                    let control = L.Routing.control({
-                        waypoints: route,
-                        createMarker: function() { return null; },
-                        routeWhileDragging: true,
-                        showAlternatives: false,
-                        plan: function(route) {
-                            route.on('routesfound', function(e) {
-                                totalPermDistance += e.routes[0].summary.totalDistance / 1000; // Convert meters to kilometers
-                            });
-                        }
-                    }).addTo(map);
-                    totalRoute.push(control);
-                });
-
-                outputDiv.innerHTML += `<br>Es wurden ${permutations.length} mögliche Routen berechnet. Gesamtdistanz: ${totalPermDistance.toFixed(2)} km`;
-            }
         }).catch(error => {
             outputDiv.innerHTML = 'Fehler beim Berechnen der Koordinaten: ' + error;
         });
     }
 
-    function getCoordinates(location) {
+    function getCoordinatesFromGeoJson(location) {
         return new Promise((resolve, reject) => {
-            let url = `https://api.openrouteservice.org/geocode/search?api_key=${apiKey}&text=${location}`;
-            fetch(url)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.features && data.features.length > 0) {
-                        let coord = data.features[0].geometry.coordinates;
-                        resolve({ lat: coord[1], lon: coord[0] });
-                    } else {
-                        resolve(null);
-                    }
-                })
-                .catch(err => reject(err));
-        });
-    }
-
-    function getPermutations(arr) {
-        if (arr.length === 0) return [[]];
-        let result = [];
-        for (let i = 0; i < arr.length; i++) {
-            let first = arr[i];
-            let remaining = arr.slice(0, i).concat(arr.slice(i + 1));
-            let permutations = getPermutations(remaining);
-            for (let perm of permutations) {
-                result.push([first].concat(perm));
+            const feature = geoJsonData.features.find(f => f.properties.name.toLowerCase() === location.toLowerCase());
+            if (feature) {
+                const coord = feature.geometry.coordinates;
+                resolve({ lat: coord[1], lon: coord[0] });
+            } else {
+                resolve(null);
             }
-        }
-        return result;
+        });
     }
 </script>
 
