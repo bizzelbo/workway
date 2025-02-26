@@ -56,49 +56,13 @@
 <script>
     const apiKey = '5b3ce3597851110001cf62484340a966fc4945bfa57ce8995c8e89f2';
 
-    // Beispiel GeoJSON-Daten (dieses Format könntest du z.B. aus einer externen Datei laden)
-    const geoJsonData = {
-        "type": "FeatureCollection",
-        "features": [
-            {
-                "type": "Feature",
-                "properties": {
-                    "name": "Raidelbach"
-                },
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [8.7352499, 49.709349]
-                }
-            },
-            {
-                "type": "Feature",
-                "properties": {
-                    "name": "Siegen"
-                },
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [8.026, 50.858]
-                }
-            },
-            {
-                "type": "Feature",
-                "properties": {
-                    "name": "Köln"
-                },
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [6.960279, 50.937531]
-                }
-            }
-        ]
-    };
-
     let map = L.map('map').setView([50.856, 8.024], 7); // Start position (Siegen)
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
 
+    // Funktion zur Routenberechnung
     function calculateRoutes() {
         let locations = document.getElementById('locations').value.split(',').map(loc => loc.trim());
         
@@ -111,42 +75,50 @@
         outputDiv.innerHTML = ''; // Clear previous output
         let waypoints = [];
 
-        // Extrahiere die Koordinaten der angegebenen Orte aus dem GeoJSON
-        let promises = locations.map(loc => getCoordinatesFromGeoJson(loc));
+        // GeoJSON-Datei laden
+        fetch('path/to/your/Kreis_siegen_Sauerland.geojson')  // Hier den Pfad zu deiner GeoJSON-Datei anpassen
+            .then(response => response.json())
+            .then(geoJsonData => {
+                // Extrahiere die Koordinaten der angegebenen Orte aus dem GeoJSON
+                let promises = locations.map(loc => getCoordinatesFromGeoJson(loc, geoJsonData));
 
-        Promise.all(promises).then(coordinates => {
-            coordinates.forEach(coord => {
-                if (coord) waypoints.push(L.latLng(coord.lat, coord.lon));
-            });
-
-            if (waypoints.length < 2) {
-                outputDiv.innerHTML = 'Die angegebenen Orte konnten nicht gefunden werden.';
-                return;
-            }
-
-            // Zeige Route auf der Karte an
-            let totalDistance = 0;
-            L.Routing.control({
-                waypoints: waypoints,
-                createMarker: function() { return null; },
-                routeWhileDragging: true,
-                showAlternatives: false,
-                plan: function(route) {
-                    route.on('routesfound', function(e) {
-                        totalDistance += e.routes[0].summary.totalDistance / 1000; // Umrechnung in Kilometer
-                        outputDiv.innerHTML = `Gesamtstrecke für diese Route: ${totalDistance.toFixed(2)} km`;
+                Promise.all(promises).then(coordinates => {
+                    coordinates.forEach(coord => {
+                        if (coord) waypoints.push(L.latLng(coord.lat, coord.lon));
                     });
-                }
-            }).addTo(map);
 
-            outputDiv.innerHTML = `Routen berechnet! Gesamtdistanz: ${totalDistance.toFixed(2)} km`;
+                    if (waypoints.length < 2) {
+                        outputDiv.innerHTML = 'Die angegebenen Orte konnten nicht gefunden werden.';
+                        return;
+                    }
 
-        }).catch(error => {
-            outputDiv.innerHTML = 'Fehler beim Berechnen der Koordinaten: ' + error;
-        });
+                    // Zeige Route auf der Karte an
+                    let totalDistance = 0;
+                    L.Routing.control({
+                        waypoints: waypoints,
+                        createMarker: function() { return null; },
+                        routeWhileDragging: true,
+                        showAlternatives: false,
+                        plan: function(route) {
+                            route.on('routesfound', function(e) {
+                                totalDistance += e.routes[0].summary.totalDistance / 1000; // Umrechnung in Kilometer
+                                outputDiv.innerHTML = `Gesamtstrecke für diese Route: ${totalDistance.toFixed(2)} km`;
+                            });
+                        }
+                    }).addTo(map);
+
+                    outputDiv.innerHTML = `Routen berechnet! Gesamtdistanz: ${totalDistance.toFixed(2)} km`;
+                }).catch(error => {
+                    outputDiv.innerHTML = 'Fehler beim Berechnen der Koordinaten: ' + error;
+                });
+            })
+            .catch(err => {
+                outputDiv.innerHTML = 'Fehler beim Laden der GeoJSON-Datei: ' + err;
+            });
     }
 
-    function getCoordinatesFromGeoJson(location) {
+    // Funktion zum Extrahieren der Koordinaten eines Ortes aus der GeoJSON
+    function getCoordinatesFromGeoJson(location, geoJsonData) {
         return new Promise((resolve, reject) => {
             const feature = geoJsonData.features.find(f => f.properties.name.toLowerCase() === location.toLowerCase());
             if (feature) {
