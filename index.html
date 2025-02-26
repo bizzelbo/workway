@@ -30,6 +30,11 @@
             margin: 10px;
             font-size: 14px;
         }
+        #map {
+            height: 500px;
+            width: 100%;
+            margin-top: 30px;
+        }
     </style>
 </head>
 <body>
@@ -43,12 +48,19 @@
 </div>
 
 <div id="output"></div>
+<div id="map"></div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
 
 <script>
     const apiKey = '5b3ce3597851110001cf62484340a966fc4945bfa57ce8995c8e89f2';
+
+    let map = L.map('map').setView([50.856, 8.024], 7); // Start position (Siegen)
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
 
     // Funktion zur Routenberechnung
     function calculateRoutes() {
@@ -72,7 +84,7 @@
 
                 Promise.all(promises).then(coordinates => {
                     coordinates.forEach(coord => {
-                        if (coord) waypoints.push(coord); // Füge Koordinaten hinzu
+                        if (coord) waypoints.push(L.latLng(coord.lat, coord.lon));
                     });
 
                     if (waypoints.length < 2) {
@@ -80,17 +92,27 @@
                         return;
                     }
 
-                    // Berechne die Gesamtstrecke der Route
+                    // Zeige Route auf der Karte an
                     let totalDistance = 0;
-                    for (let i = 0; i < waypoints.length - 1; i++) {
-                        const from = L.latLng(waypoints[i].lat, waypoints[i].lon);
-                        const to = L.latLng(waypoints[i + 1].lat, waypoints[i + 1].lon);
-                        totalDistance += from.distanceTo(to); // Berechne die Entfernung zwischen den Punkten
-                    }
+                    let routeControl = L.Routing.control({
+                        waypoints: waypoints,
+                        createMarker: function() { return null; }, // Keine Marker anzeigen
+                        routeWhileDragging: true,
+                        showAlternatives: false
+                    }).on('routesfound', function(e) {
+                        // Berechne die Gesamtstrecke
+                        totalDistance = e.routes[0].summary.totalDistance / 1000; // Umrechnung in Kilometer
+                        outputDiv.innerHTML = `Gesamtstrecke für diese Route: ${totalDistance.toFixed(2)} km`;
+                    }).addTo(map);
 
-                    // Ausgabe der Gesamtstrecke
-                    totalDistance = totalDistance / 1000; // Umrechnung in Kilometer
-                    outputDiv.innerHTML = `Gesamtstrecke für diese Route: ${totalDistance.toFixed(2)} km`;
+                    // Zeichne die Route auf der Karte
+                    routeControl.getRoutes().forEach(route => {
+                        route.setStyle({
+                            color: 'blue',
+                            weight: 5,
+                            opacity: 0.7
+                        });
+                    });
                 }).catch(error => {
                     outputDiv.innerHTML = 'Fehler beim Berechnen der Koordinaten: ' + error;
                 });
