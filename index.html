@@ -101,4 +101,94 @@
             let routePromises = [];
             for (let i = 0; i < coordinates.length - 1; i++) {
                 const start = coordinates[i];
-                const end = coordi
+                const end = coordinates[i + 1];
+
+                routePromises.push(
+                    getRoute(start, end).then(distance => {
+                        console.log(`Berechnete Distanz von ${start} nach ${end}: ${distance} km`);  // Debugging: Distanz anzeigen
+                        totalDistance += distance;
+                    })
+                );
+            }
+
+            Promise.all(routePromises).then(() => {
+                console.log('Gesamte Distanz: ', totalDistance);  // Debugging: Gesamte Distanz anzeigen
+                displayResult(totalDistance);
+            });
+        }
+
+        // Holen der Koordinaten für die Orte aus der GeoJSON
+        function getCoordinatesFromGeoJson(placeName) {
+            const feature = geojsonData.features.find(f => f.properties.name.toLowerCase() === placeName.toLowerCase());
+            if (feature) {
+                return feature.geometry.coordinates;
+            }
+            return null;
+        }
+
+        // Holen der Route und Berechnung der Distanz
+        function getRoute(startCoords, endCoords) {
+            const url = `https://api.openstreetmap.org/routing/v1/route?start=${startCoords[1]},${startCoords[0]}&end=${endCoords[1]},${endCoords[0]}&format=json`;
+
+            return fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('API Antwort:', data);  // Debugging: API Antwort überprüfen
+                    if (data.routes && data.routes.length > 0) {
+                        const distance = data.routes[0].legs[0].distance / 1000; // in km
+                        console.log(`Distanz: ${distance} km`);  // Debugging: Berechnete Distanz
+                        return distance;
+                    } else {
+                        throw new Error('Keine Route gefunden');
+                    }
+                })
+                .catch(error => {
+                    console.error('Fehler beim Abrufen der Route:', error);
+                    return 0; // im Fehlerfall 0 zurückgeben
+                });
+        }
+
+        // Das Ergebnis der Berechnung anzeigen
+        function displayResult(totalDistance) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `
+                Die gesamte Entfernung beträgt: ${totalDistance.toFixed(2)} km
+                <button onclick="copyToClipboard('${totalDistance.toFixed(2)} km')">Kopieren</button>
+            `;
+        }
+
+        // Die Kopieren-Funktion
+        function copyToClipboard(text) {
+            const tempInput = document.createElement("input");
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand("copy");
+            document.body.removeChild(tempInput);
+            alert("Kopiert: " + text);
+        }
+
+        // Orte kopieren
+        function copyPlaces() {
+            const inputField = document.getElementById('placesInput');
+            copyToClipboard(inputField.value);
+        }
+
+        // Karte mit Leaflet einbinden
+        function initMap() {
+            const map = L.map('map').setView([51.0828, 7.8661], 10);  // Default auf Olpe
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            // Marker nur nach der Berechnung hinzufügen
+            document.getElementById("placesInput").addEventListener("focus", removeMarkers); // Entferne Marker, wenn der Fokus auf das Eingabefeld gelegt wird
+            addMarkers();
+        }
+
+        // Karte initialisieren
+        initMap();
+    </script>
+</body>
+</html>
