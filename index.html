@@ -94,9 +94,9 @@
 
                     // Zeige Route auf der Karte an
                     let totalDistance = 0;
-                    L.Routing.control({
+                    let routeControl = L.Routing.control({
                         waypoints: waypoints,
-                        createMarker: function() { return null; },
+                        createMarker: function() { return null; }, // Keine Marker anzeigen
                         routeWhileDragging: true,
                         showAlternatives: false
                     }).on('routesfound', function(e) {
@@ -104,6 +104,15 @@
                         totalDistance = e.routes[0].summary.totalDistance / 1000; // Umrechnung in Kilometer
                         outputDiv.innerHTML = `Gesamtstrecke für diese Route: ${totalDistance.toFixed(2)} km`;
                     }).addTo(map);
+
+                    // Zeichne die Route auf der Karte
+                    routeControl.getRoutes().forEach(route => {
+                        route.setStyle({
+                            color: 'blue',
+                            weight: 5,
+                            opacity: 0.7
+                        });
+                    });
                 }).catch(error => {
                     outputDiv.innerHTML = 'Fehler beim Berechnen der Koordinaten: ' + error;
                 });
