@@ -77,7 +77,6 @@
                 map.setView(coordinates[0], 10);
             }
 
-            L.geoJSON(geoJsonData).addTo(map);
 
             const routeCoordinates = coordinates.map(coord => coord.join(',')).join('|');
             const url = `https://api.openrouteservice.org/v2/directions/driving-car?api_key=5b3ce3597851110001cf62484340a966fc4945bfa57ce8995c8e89f2`;
