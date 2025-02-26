@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Workway</title>
+    <title>Workway mit GeoJSON</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -42,32 +42,20 @@
             height: 20%;
             border: 1px solid #ddd;
         }
-
-        /* Button Container für Berechnen und Kopieren */
-        #button-container {
-            display: flex;
-            justify-content: center;
-        }
-
-        #copyButton {
-            display: none; /* Startet versteckt, wird angezeigt nach Berechnung */
-        }
     </style>
 </head>
 <body>
 
-<h1>Workway</h1>
+<h1>Workway mit GeoJSON</h1>
 
 <div id="input-container">
     <label for="locations">Gib Orte ein (durch Kommata getrennt):</label><br>
-    <input type="text" id="locations" placeholder="z.B. Raidelbach, Siegen" style="width: 300px;">
+    <input type="text" id="locations" placeholder="z.B. Raidelbach, Siegen, Köln" style="width: 300px;">
+    <button onclick="calculateRoutes()">Berechne Routen</button>
+    <button id="copyButton" onclick="copyToClipboard()" style="display: none;">KM kopieren</button>
 </div>
 
-<!-- Container für Berechnen-Button und Kopieren-Button -->
-<div id="button-container">
-    <button onclick="calculateRoutes()">Berechne Routen</button>
-    <button id="copyButton" onclick="copyToClipboard()">KM kopieren</button>
-</div>
+<div id="output" style="font-size: 16px; color: #333;"></div>
 
 <!-- Container für die Karte -->
 <div id="map"></div>
@@ -95,6 +83,8 @@
             return;
         }
 
+        let outputDiv = document.getElementById('output');
+        outputDiv.innerHTML = ''; // Clear previous output
         let waypoints = [];
 
         // GeoJSON-Datei laden
@@ -110,7 +100,7 @@
                     });
 
                     if (waypoints.length < 2) {
-                        alert('Einige Orte konnten nicht gefunden werden.');
+                        outputDiv.innerHTML = 'Die angegebenen Orte konnten nicht gefunden werden.';
                         return;
                     }
 
@@ -130,15 +120,18 @@
                         showAlternatives: false
                     }).addTo(map);
 
-                    // Gesamtstrecke in Kilometer umrechnen und ausgeben
+                    // Ausgabe der Gesamtstrecke
                     totalDistance = totalDistance / 1000; // Umrechnung in Kilometer
-                    document.getElementById('copyButton').style.display = 'inline'; // Kopieren-Button sichtbar machen
+                    outputDiv.innerHTML = `Gesamtstrecke für diese Route: ${totalDistance.toFixed(2)} km`;
+
+                    // Zeige den "KM kopieren"-Button
+                    document.getElementById('copyButton').style.display = 'inline';
                 }).catch(error => {
-                    alert('Fehler beim Berechnen der Koordinaten: ' + error);
+                    outputDiv.innerHTML = 'Fehler beim Berechnen der Koordinaten: ' + error;
                 });
             })
             .catch(err => {
-                alert('Fehler beim Laden der GeoJSON-Datei: ' + err);
+                outputDiv.innerHTML = 'Fehler beim Laden der GeoJSON-Datei: ' + err;
             });
     }
 
