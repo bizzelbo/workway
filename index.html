@@ -87,28 +87,43 @@
             }
 
             // Show route on the map
+            let totalDistance = 0;
             L.Routing.control({
                 waypoints: waypoints,
                 createMarker: function() { return null; },
-                routeWhileDragging: true
+                routeWhileDragging: true,
+                showAlternatives: false,
+                plan: function(route) {
+                    route.on('routesfound', function(e) {
+                        totalDistance += e.routes[0].summary.totalDistance / 1000; // Convert meters to kilometers
+                        outputDiv.innerHTML = `Gesamtstrecke für diese Route: ${totalDistance.toFixed(2)} km`;
+                    });
+                }
             }).addTo(map);
 
-            outputDiv.innerHTML = 'Routen berechnet!';
+            outputDiv.innerHTML = `Routen berechnet! Gesamtdistanz: ${totalDistance.toFixed(2)} km`;
 
             // Handle multiple locations (4 or more)
             if (waypoints.length >= 4) {
                 let permutations = getPermutations(waypoints);
                 let totalRoute = [];
+                let totalPermDistance = 0;
                 permutations.forEach(route => {
                     let control = L.Routing.control({
                         waypoints: route,
                         createMarker: function() { return null; },
-                        routeWhileDragging: true
+                        routeWhileDragging: true,
+                        showAlternatives: false,
+                        plan: function(route) {
+                            route.on('routesfound', function(e) {
+                                totalPermDistance += e.routes[0].summary.totalDistance / 1000; // Convert meters to kilometers
+                            });
+                        }
                     }).addTo(map);
                     totalRoute.push(control);
                 });
 
-                outputDiv.innerHTML += '<br>Es wurden ' + permutations.length + ' mögliche Routen berechnet.';
+                outputDiv.innerHTML += `<br>Es wurden ${permutations.length} mögliche Routen berechnet. Gesamtdistanz: ${totalPermDistance.toFixed(2)} km`;
             }
         }).catch(error => {
             outputDiv.innerHTML = 'Fehler beim Berechnen der Koordinaten: ' + error;
