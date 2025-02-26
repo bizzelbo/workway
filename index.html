@@ -72,7 +72,7 @@
 
                 Promise.all(promises).then(coordinates => {
                     coordinates.forEach(coord => {
-                        if (coord) waypoints.push(L.latLng(coord.lat, coord.lon));
+                        if (coord) waypoints.push(coord); // Füge Koordinaten hinzu
                     });
 
                     if (waypoints.length < 2) {
@@ -80,21 +80,17 @@
                         return;
                     }
 
-                    // Zeige Route auf der Karte an
+                    // Berechne die Gesamtstrecke der Route
                     let totalDistance = 0;
-                    let routeControl = L.Routing.control({
-                        waypoints: waypoints,
-                        createMarker: function() { return null; }, // Keine Marker anzeigen
-                        routeWhileDragging: true,
-                        showAlternatives: false
-                    }).on('routesfound', function(e) {
-                        // Berechne die Gesamtstrecke
-                        totalDistance = e.routes[0].summary.totalDistance / 1000; // Umrechnung in Kilometer
-                        outputDiv.innerHTML = `Gesamtstrecke für diese Route: ${totalDistance.toFixed(2)} km`;
-                    });
+                    for (let i = 0; i < waypoints.length - 1; i++) {
+                        const from = L.latLng(waypoints[i].lat, waypoints[i].lon);
+                        const to = L.latLng(waypoints[i + 1].lat, waypoints[i + 1].lon);
+                        totalDistance += from.distanceTo(to); // Berechne die Entfernung zwischen den Punkten
+                    }
 
-                    // Route nur berechnen, aber nicht auf der Karte anzeigen
-                    // routeControl.addTo(map);
+                    // Ausgabe der Gesamtstrecke
+                    totalDistance = totalDistance / 1000; // Umrechnung in Kilometer
+                    outputDiv.innerHTML = `Gesamtstrecke für diese Route: ${totalDistance.toFixed(2)} km`;
                 }).catch(error => {
                     outputDiv.innerHTML = 'Fehler beim Berechnen der Koordinaten: ' + error;
                 });
