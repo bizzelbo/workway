@@ -138,7 +138,8 @@
     // Funktion zum Extrahieren der Koordinaten eines Ortes aus der GeoJSON
     function getCoordinatesFromGeoJson(location, geoJsonData) {
         return new Promise((resolve, reject) => {
-            const feature = geoJsonData.features.find(f => f.properties.name.toLowerCase() === location.toLowerCase());
+            const feature = geoJsonData.features.find(f => f.properties && f.properties.name && f.properties.name.toLowerCase() === location.toLowerCase());
+
             if (feature) {
                 const coord = feature.geometry.coordinates;
                 resolve({ lat: coord[1], lon: coord[0] });
